@@ -204,6 +204,47 @@ async function sendToGoogleSheet(data) {
   }
 }
 
+// ── Sync data from Google Apps Script ──
+async function syncDataFromGoogleSheet() {
+  if (CONFIG.APPS_SCRIPT_URL === 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') return null;
+
+  try {
+    const response = await fetch(CONFIG.APPS_SCRIPT_URL + '?action=getAll');
+    const result = await response.json();
+
+    if (result.status === 'success' && result.data) {
+      const items = result.data.map(row => {
+        return {
+          id: row['TIMESTAMP'] || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+          tanggalPeminjaman: row['TANGGAL PEMINJAMAN'] || '',
+          nama: row['NAMA'] || '',
+          telepon: row['NOMOR TELEPON/WHATSAPP'] || '',
+          unit: row['UNIT'] || '',
+          tujuan: row['TUJUAN (JENIS KEGIATAN)'] || '',
+          lokasi: row['LOKASI KEGIATAN'] || '',
+          jenisPerjalanan: row['JENIS PERJALANAN'] || '',
+          waktuBerangkat: row['WAKTU KEBERANGKATAN'] || '',
+          waktuPulang: row['WAKTU KEPULANGAN'] || '',
+          jumlahPenumpang: row['JUMLAH PENUMPANG'] || '',
+          jumlahArmada: row['JUMLAH ARMADA'] || '',
+          tanggalKepulangan: row['TANGGAL KEPULANGAN (JIKA MENGINAP)'] || '',
+          status: row['STATUS'] || 'Pending',
+          createdAt: row['TIMESTAMP'] || new Date().toISOString()
+        };
+      });
+
+      // Reverse to show newest first
+      items.reverse();
+
+      DataStore.save(items);
+      return items;
+    }
+  } catch (error) {
+    console.error('Error syncing from Google Sheet:', error);
+  }
+  return null;
+}
+
 // ── CSV Export ──
 function exportToCSV(data, filename = 'data_peminjaman.csv') {
   if (data.length === 0) {

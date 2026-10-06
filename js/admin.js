@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loginOverlay.classList.remove('active');
     adminContent.style.display = 'block';
     renderAll();
+    syncAndRender();
   }
 
   // Handle Login
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         adminContent.style.display = 'block';
         Toast.success('Login Berhasil', 'Selamat datang di Admin Panel.');
         renderAll();
+        syncAndRender();
       } else {
         Toast.error('Login Gagal', 'Username atau password salah.');
       }
@@ -81,9 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAll();
   });
 
-  document.getElementById('btnRefresh').addEventListener('click', () => {
-    renderAll();
-    Toast.info('Data Diperbarui', 'Tabel data telah diperbarui.');
+  document.getElementById('btnRefresh').addEventListener('click', async () => {
+    await syncAndRender();
+    Toast.info('Data Diperbarui', 'Tabel data telah diperbarui dari Google Sheet.');
   });
 
   document.getElementById('btnExport').addEventListener('click', () => {
@@ -144,6 +146,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     return data;
+  }
+
+  async function syncAndRender() {
+    const btnRefresh = document.getElementById('btnRefresh');
+    if (btnRefresh) {
+      btnRefresh.disabled = true;
+      btnRefresh.style.opacity = '0.5';
+    }
+    
+    await syncDataFromGoogleSheet();
+    renderAll();
+    
+    if (btnRefresh) {
+      btnRefresh.disabled = false;
+      btnRefresh.style.opacity = '1';
+    }
   }
 
   function renderAll() {
@@ -358,9 +376,11 @@ document.addEventListener('DOMContentLoaded', () => {
     editModal.classList.add('active');
   };
 
-  function saveEdit() {
+  async function saveEdit() {
     const id = document.getElementById('editId').value;
     const updates = {
+      action: 'update',
+      id: id,
       tanggalPeminjaman: document.getElementById('editTanggal').value,
       nama: document.getElementById('editNama').value.trim(),
       telepon: document.getElementById('editTelepon').value.trim(),
@@ -381,14 +401,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const btnSave = document.getElementById('btnSaveEdit');
+    const oldText = btnSave.innerHTML;
+    btnSave.innerHTML = 'Menyimpan...';
+    btnSave.disabled = true;
+
     const result = DataStore.update(id, updates);
     if (result) {
+      await sendToGoogleSheet(updates);
       Toast.success('Data Diperbarui', `Data peminjaman ${updates.nama} berhasil diperbarui.`);
       editModal.classList.remove('active');
       renderAll();
     } else {
       Toast.error('Gagal', 'Data tidak ditemukan.');
     }
+
+    btnSave.innerHTML = oldText;
+    btnSave.disabled = false;
   }
 
   window.openDelete = function(id) {
@@ -396,9 +425,13 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteDialog.showModal();
   };
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTargetId) return;
     const item = DataStore.getById(deleteTargetId);
+    
+    // Send delete to Google Sheet
+    await sendToGoogleSheet({ action: 'delete', id: deleteTargetId });
+
     const success = DataStore.delete(deleteTargetId);
     deleteDialog.close();
 

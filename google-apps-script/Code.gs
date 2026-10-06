@@ -106,44 +106,96 @@ function doPost(e) {
 
     // Parse incoming data
     const data = JSON.parse(e.postData.contents);
+    const action = data.action || 'add';
 
-    // Prepare row data
-    const timestamp = new Date();
-    const row = [
-      Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
-      data.tanggalPeminjaman || '',
-      data.nama || '',
-      data.telepon || '',
-      data.unit || '',
-      data.tujuan || '',
-      data.lokasi || '',
-      data.jenisPerjalanan || '',
-      data.waktuBerangkat || '',
-      data.waktuPulang || '',
-      data.jumlahPenumpang || '',
-      data.jumlahArmada || '',
-      data.tanggalKepulangan || '',
-      'Pending'
-    ];
+    if (action === 'add') {
+      // Prepare row data
+      const timestamp = new Date();
+      const row = [
+        Utilities.formatDate(timestamp, Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'),
+        data.tanggalPeminjaman || '',
+        data.nama || '',
+        data.telepon || '',
+        data.unit || '',
+        data.tujuan || '',
+        data.lokasi || '',
+        data.jenisPerjalanan || '',
+        data.waktuBerangkat || '',
+        data.waktuPulang || '',
+        data.jumlahPenumpang || '',
+        data.jumlahArmada || '',
+        data.tanggalKepulangan || '',
+        'Pending'
+      ];
 
-    // Append row to sheet
-    sheet.appendRow(row);
+      // Append row to sheet
+      sheet.appendRow(row);
 
-    // Format the newly added row
-    const lastRow = sheet.getLastRow();
-    const statusCell = sheet.getRange(lastRow, 14);
-    statusCell.setBackground('#fff3cd');
-    statusCell.setFontColor('#856404');
-    statusCell.setHorizontalAlignment('center');
+      // Format the newly added row
+      const lastRow = sheet.getLastRow();
+      const statusCell = sheet.getRange(lastRow, 14);
+      statusCell.setBackground('#fff3cd');
+      statusCell.setFontColor('#856404');
+      statusCell.setHorizontalAlignment('center');
 
-    // Return success response
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        status: 'success',
-        message: 'Data berhasil disimpan',
-        row: lastRow
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: 'success',
+          message: 'Data berhasil disimpan',
+          row: lastRow
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } 
+    else if (action === 'update' || action === 'delete') {
+      const targetTimestamp = data.id; // We use TIMESTAMP as ID
+      const sheetData = sheet.getDataRange().getValues();
+      let targetRow = -1;
+
+      for (let i = 1; i < sheetData.length; i++) {
+        // Column A (index 0) is TIMESTAMP
+        if (sheetData[i][0] == targetTimestamp) {
+          targetRow = i + 1; // 1-based row index
+          break;
+        }
+      }
+
+      if (targetRow === -1) {
+        throw new Error('Data tidak ditemukan');
+      }
+
+      if (action === 'delete') {
+        sheet.deleteRow(targetRow);
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            status: 'success',
+            message: 'Data berhasil dihapus'
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } 
+      else if (action === 'update') {
+        // Update cells based on provided data
+        if (data.tanggalPeminjaman !== undefined) sheet.getRange(targetRow, 2).setValue(data.tanggalPeminjaman);
+        if (data.nama !== undefined) sheet.getRange(targetRow, 3).setValue(data.nama);
+        if (data.telepon !== undefined) sheet.getRange(targetRow, 4).setValue(data.telepon);
+        if (data.unit !== undefined) sheet.getRange(targetRow, 5).setValue(data.unit);
+        if (data.tujuan !== undefined) sheet.getRange(targetRow, 6).setValue(data.tujuan);
+        if (data.lokasi !== undefined) sheet.getRange(targetRow, 7).setValue(data.lokasi);
+        if (data.jenisPerjalanan !== undefined) sheet.getRange(targetRow, 8).setValue(data.jenisPerjalanan);
+        if (data.waktuBerangkat !== undefined) sheet.getRange(targetRow, 9).setValue(data.waktuBerangkat);
+        if (data.waktuPulang !== undefined) sheet.getRange(targetRow, 10).setValue(data.waktuPulang);
+        if (data.jumlahPenumpang !== undefined) sheet.getRange(targetRow, 11).setValue(data.jumlahPenumpang);
+        if (data.jumlahArmada !== undefined) sheet.getRange(targetRow, 12).setValue(data.jumlahArmada);
+        if (data.tanggalKepulangan !== undefined) sheet.getRange(targetRow, 13).setValue(data.tanggalKepulangan);
+        if (data.status !== undefined) sheet.getRange(targetRow, 14).setValue(data.status);
+        
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            status: 'success',
+            message: 'Data berhasil diupdate'
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
 
   } catch (error) {
     Logger.log('Error: ' + error.toString());
